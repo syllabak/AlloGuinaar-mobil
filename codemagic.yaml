@@ -1,0 +1,175 @@
+workflows:
+  # ═══════════════════════════════════════════════════════════
+  #  ANDROID — Google Play (build AAB + APK)
+  # ═══════════════════════════════════════════════════════════
+  android-release:
+    name: Allo Guinaar - Android Play Store
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      groups:
+        - alloguinaar
+    scripts:
+      - name: Install Flutter dependencies
+        script: flutter packages pub get
+
+      - name: Generate app icons
+        script: dart run flutter_launcher_icons
+
+      # 🆕 Fichier Firebase — reconstitué à partir d'une variable
+      # d'environnement chiffrée (voir GUIDE_CODEMAGIC.md, section
+      # "Variables à créer" : GOOGLE_SERVICES_JSON, encodée en base64).
+      - name: Restaurer google-services.json
+        script: |
+          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
+            echo "❌ ERREUR : la variable d'environnement GOOGLE_SERVICES_JSON est vide ou non définie."
+            echo "   → Codemagic : App settings > Environment variables > groupe 'alloguinaar'"
+            echo "   → Valeur attendue : le contenu de android/app/google-services.json encodé en base64"
+            exit 1
+          fi
+          echo "$GOOGLE_SERVICES_JSON" | base64 --decode > android/app/google-services.json
+          if ! python3 -c "import json; json.load(open('android/app/google-services.json'))" 2>/dev/null; then
+            echo "❌ ERREUR : google-services.json généré n'est pas un JSON valide après décodage."
+            echo "   → La variable GOOGLE_SERVICES_JSON ne contient probablement pas du base64 valide"
+            echo "     (vérifiez que vous avez bien encodé le fichier, pas collé son contenu brut)."
+            echo "   Contenu obtenu (100 premiers caractères) :"
+            head -c 100 android/app/google-services.json
+            exit 1
+          fi
+          echo "✅ google-services.json restauré et valide"
+
+      # 🆕 Keystore de signature — reconstitué à partir de variables
+      # d'environnement chiffrées (voir GUIDE_CODEMAGIC.md).
+      - name: Restaurer le keystore de signature
+        script: |
+          echo $CM_KEYSTORE | base64 --decode > /tmp/keystore.jks
+          cat > android/key.properties << EOF
+          storePassword=$CM_KEYSTORE_PASSWORD
+          keyPassword=$CM_KEY_PASSWORD
+          keyAlias=$CM_KEY_ALIAS
+          storeFile=/tmp/keystore.jks
+          EOF
+
+      - name: Flutter analyze
+        script: flutter analyze
+        ignore_failure: true
+
+      - name: Build APK + App Bundle
+        script: |
+          flutter build appbundle --release \
+            --build-name=1.1.2 \
+            --build-number=$BUILD_NUMBER
+          flutter build apk --release \
+            --build-name=1.1.2 \
+            --build-number=$BUILD_NUMBER
+
+    artifacts:
+      - build/app/outputs/bundle/release/*.aab
+      - build/app/outputs/flutter-apk/*.apk
+
+    publishing:
+      # 🆕 Publication automatique sur Google Play — nécessite la
+      # variable GCLOUD_SERVICE_ACCOUNT_CREDENTIALS (voir
+      # GUIDE_CODEMAGIC.md). Piste "internal" par défaut (test interne),
+      # à changer vous-même une fois prêt pour la production.
+      # 🆕 Publication Play Store désactivée temporairement : la
+      # variable GCLOUD_SERVICE_ACCOUNT_CREDENTIALS n'est pas encore
+      # configurée (ou invalide), ce qui faisait échouer TOUT le build
+      # avant même de compiler. L'APK/AAB reste téléchargeable en
+      # artefact ci-dessous. Pour réactiver : suivez
+      # GUIDE_GOOGLE_PLAY_API.md, puis décommentez ce bloc.
+      # google_play:
+      #   credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+      #   track: internal
+      #   submit_as_draft: true
+      email:
+        recipients:
+          - bakarysylla58@gmail.com
+
+  # ═══════════════════════════════════════════════════════════
+  #  iOS — App Store Connect (TestFlight)
+  # ═══════════════════════════════════════════════════════════
+  ios-release:
+    name: Allo Guinaar - iOS App Store
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      groups:
+        - alloguinaar
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: sn.danov.alloguinaar
+    scripts:
+      - name: Install Flutter dependencies
+        script: flutter packages pub get
+
+      - name: Generate app icons
+        script: dart run flutter_launcher_icons
+
+      # 🆕 Fichier Firebase iOS — reconstitué à partir d'une variable
+      # d'environnement chiffrée (voir GUIDE_CODEMAGIC.md).
+      - name: Restaurer GoogleService-Info.plist
+        script: |
+          if [ -z "$GOOGLE_SERVICE_INFO_PLIST" ]; then
+            echo "❌ ERREUR : la variable d'environnement GOOGLE_SERVICE_INFO_PLIST est vide ou non définie."
+            exit 1
+          fi
+          echo "$GOOGLE_SERVICE_INFO_PLIST" | base64 --decode > ios/Runner/GoogleService-Info.plist
+          if ! plutil -lint ios/Runner/GoogleService-Info.plist > /dev/null 2>&1; then
+            echo "❌ ERREUR : GoogleService-Info.plist généré n'est pas valide après décodage."
+            echo "   → Vérifiez que GOOGLE_SERVICE_INFO_PLIST contient bien le fichier encodé en base64."
+            exit 1
+          fi
+          echo "✅ GoogleService-Info.plist restauré et valide"
+
+      - name: Flutter analyze
+        script: flutter analyze
+        ignore_failure: true
+
+      # 🆕 CORRIGÉ — étape réintroduite, mais allégée : uniquement
+      # "xcode-project use-profiles", sans "fetch-signing-files". Cette
+      # dernière était la source du problème (mauvaise clé transmise,
+      # réintroduction d'un profil obsolète) et a été retirée pour de
+      # bon. "xcode-project use-profiles" ne fait, lui, qu'une chose
+      # utile et nécessaire : il configure les réglages du projet Xcode
+      # (notamment DEVELOPMENT_TEAM, absent de project.pbxproj) à partir
+      # de ce que "Set up code signing identities" a déjà déposé sur la
+      # machine juste avant — sans lui, le certificat existe bien dans le
+      # trousseau mais rien n'indique à xcodebuild où le chercher, d'où
+      # "No valid code signing certificates were found" malgré un
+      # certificat pourtant présent.
+      - name: Configure code signing
+        script: xcode-project use-profiles
+
+      - name: Build IPA for App Store
+        script: |
+          flutter build ipa --release \
+            --build-name=1.1.2 \
+            --build-number=$BUILD_NUMBER
+
+      # 🆕 Publication manuelle (au lieu du bloc "publishing:
+      # app_store_connect:" automatique) pour pouvoir passer
+      # --altool-additional-arguments "--use-old-altool" : contourne un
+      # bug connu d'altool sous Xcode 26.2+ ("Cannot determine the
+      # Apple ID from Bundle ID"), largement rapporté par d'autres
+      # développeurs depuis décembre 2025, sans rapport avec les
+      # accords App Store Connect ni la configuration du compte.
+      - name: Publier sur App Store Connect (TestFlight)
+        script: |
+          app-store-connect publish \
+            --path build/ios/ipa/*.ipa \
+            --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
+            --private-key "$APP_STORE_CONNECT_PRIVATE_KEY" \
+            --altool-additional-arguments="--use-old-altool" \
+            --testflight
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+
+    publishing:
+      email:
+        recipients:
+          - bakarysylla58@gmail.com

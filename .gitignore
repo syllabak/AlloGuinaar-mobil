@@ -1,0 +1,49 @@
+**/dgph
+*.mode1v3
+*.mode2v3
+*.moved-aside
+*.pbxuser
+*.perspectivev3
+**/*sync/
+.sconsign.dblite
+.tags*
+**/.vagrant/
+**/DerivedData/
+Icon?
+**/Pods/
+**/.symlinks/
+profile
+xcuserdata
+**/.generated/
+Flutter/App.framework
+Flutter/Flutter.framework
+Flutter/Flutter.podspec
+Flutter/Generated.xcconfig
+Flutter/ephemeral/
+Flutter/app.flx
+Flutter/app.zip
+Flutter/flutter_assets/
+Flutter/flutter_export_environment.sh
+ServiceDefinitions.json
+Runner/GeneratedPluginRegistrant.*
+
+# Exceptions to above rules.
+!default.mode1v3
+!default.mode2v3
+!default.pbxuser
+!default.perspectivev3
+
+# 🆕 CORRIGÉ — fichiers de signature de code, jamais versionnés.
+# Sans ces lignes, rien n'empêchait un profil ou un certificat ajouté
+# par erreur de se retrouver commité et poussé sur GitHub, où il reste
+# indéfiniment (chaque nouveau clone/build le récupère à nouveau, même
+# après suppression côté Apple Developer Portal ou Codemagic).
+*.mobileprovision
+*.provisionprofile
+*.p12
+*.pem
+*.cer
+*.csr
+*.key
+
+build/

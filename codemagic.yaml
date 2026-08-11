@@ -92,16 +92,44 @@ workflows:
   ios-release:
     name: Allo Guinaar - iOS App Store
     max_build_duration: 60
+    # 🆕 CORRIGÉ — "integrations:" doit être une clé au même niveau que
+    # "environment:" (sœur, pas enfant) : Codemagic a rejeté le yaml
+    # précédent avec "extra fields not permitted" parce que je l'avais
+    # imbriquée par erreur À L'INTÉRIEUR de "environment:". Structure
+    # correcte ci-dessous.
+    integrations:
+      app_store_connect: Codemagic Signing v2
     environment:
       flutter: stable
       xcode: latest
       cocoapods: default
       groups:
         - alloguinaar
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: sn.danov.alloguinaar
+      vars:
+        BUNDLE_ID: "sn.danov.alloguinaar"
     scripts:
+      # 🆕 CORRIGÉ — ces quatre étapes remplacent "Set up code signing
+      # identities" (bloc auto simple) ET l'ancienne étape manuelle
+      # "Set up code signing" qui appelait fetch-signing-files avec une
+      # mauvaise clé et retrouvait systématiquement un certificat
+      # révoqué. Ici, une seule source de vérité : l'intégration nommée
+      # ci-dessus, aucun appel réseau redondant qui pourrait entrer en
+      # conflit avec elle.
+      - name: Set up keychain to be used for code signing
+        script: keychain initialize
+
+      - name: Fetch signing files
+        script: |
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+
+      - name: Set up signing certificate
+        script: keychain add-certificates
+
+      - name: Set up code signing settings on Xcode project
+        script: xcode-project use-profiles
+
       - name: Install Flutter dependencies
         script: flutter packages pub get
 
@@ -128,48 +156,26 @@ workflows:
         script: flutter analyze
         ignore_failure: true
 
-      # 🆕 CORRIGÉ — étape réintroduite, mais allégée : uniquement
-      # "xcode-project use-profiles", sans "fetch-signing-files". Cette
-      # dernière était la source du problème (mauvaise clé transmise,
-      # réintroduction d'un profil obsolète) et a été retirée pour de
-      # bon. "xcode-project use-profiles" ne fait, lui, qu'une chose
-      # utile et nécessaire : il configure les réglages du projet Xcode
-      # (notamment DEVELOPMENT_TEAM, absent de project.pbxproj) à partir
-      # de ce que "Set up code signing identities" a déjà déposé sur la
-      # machine juste avant — sans lui, le certificat existe bien dans le
-      # trousseau mais rien n'indique à xcodebuild où le chercher, d'où
-      # "No valid code signing certificates were found" malgré un
-      # certificat pourtant présent.
-      - name: Configure code signing
-        script: xcode-project use-profiles
-
       - name: Build IPA for App Store
         script: |
           flutter build ipa --release \
             --build-name=1.1.2 \
             --build-number=$BUILD_NUMBER
 
-      # 🆕 Publication manuelle (au lieu du bloc "publishing:
-      # app_store_connect:" automatique) pour pouvoir passer
-      # --altool-additional-arguments "--use-old-altool" : contourne un
-      # bug connu d'altool sous Xcode 26.2+ ("Cannot determine the
-      # Apple ID from Bundle ID"), largement rapporté par d'autres
-      # développeurs depuis décembre 2025, sans rapport avec les
-      # accords App Store Connect ni la configuration du compte.
-      - name: Publier sur App Store Connect (TestFlight)
-        script: |
-          app-store-connect publish \
-            --path build/ios/ipa/*.ipa \
-            --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-            --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
-            --private-key "$APP_STORE_CONNECT_PRIVATE_KEY" \
-            --altool-additional-arguments="--use-old-altool" \
-            --testflight
-
     artifacts:
       - build/ios/ipa/*.ipa
 
+    # 🆕 CORRIGÉ — remplace l'étape manuelle "app-store-connect publish"
+    # (qui nécessitait le contournement --use-old-altool pour un bug
+    # d'altool sous Xcode 26.2+) par le mécanisme de publication intégré
+    # de Codemagic, qui n'utilise pas altool et n'est donc pas concerné
+    # par ce bug. "submit_to_app_store" n'est PAS activé : ça enverrait
+    # directement en revue App Store à chaque build, une décision qui
+    # doit rester volontaire, pas automatique à chaque test.
     publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
       email:
         recipients:
           - bakarysylla58@gmail.com

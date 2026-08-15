@@ -98,11 +98,20 @@ class FcmService {
       FirebaseMessaging.onBackgroundMessage(_backgroundMessageHandler);
       ApiService.debugLog("onBackgroundMessage enregistré, avant requestPermission");
 
+      // 🆕 CORRIGÉ — requestPermission() pouvait rester bloqué
+      // indéfiniment sans jamais lever d'erreur ni revenir (confirmé par
+      // les traces debug_log : elles s'arrêtent juste avant "Permission
+      // obtenue", jamais d'exception). Même symptôme que le blocage
+      // corrigé dans main.dart pour les autres init au démarrage — sans
+      // ce .timeout(), _initialise restait bloqué à true pour le reste
+      // de la session, empêchant toute nouvelle tentative même en se
+      // reconnectant. Le timeout force une TimeoutException, captée par
+      // le catch ci-dessous qui remet _initialise à false.
       final permission = await _fcm.requestPermission(
         alert: true, badge: true, sound: true,
         announcement: false, carPlay: false,
         criticalAlert: false, provisional: false,
-      );
+      ).timeout(const Duration(seconds: 8));
       print("[FCM] Permission : ${permission.authorizationStatus}");
       ApiService.debugLog("Permission obtenue : ${permission.authorizationStatus}");
 

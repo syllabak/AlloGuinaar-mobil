@@ -3,7 +3,7 @@ import 'app_navigator.dart';
 import 'session_service.dart';
 import 'message_screen.dart';
 import 'catalogue_screen.dart';
-import 'notifi09_producteur_screen.dart';
+import 'producteur_screen.dart';
 import 'livreur_screen.dart';
 import 'proposition_commande_screen.dart'; // dispatch Uber/Yango
 

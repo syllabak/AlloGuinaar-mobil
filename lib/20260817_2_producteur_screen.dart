@@ -10,7 +10,6 @@ import 'formations_screen.dart'; // 🆕 Lot 9
 import 'publicite_service.dart'; // 🆕 Lot 10
 import 'proposition_commande_screen.dart'; // 🆕 Dispatch Uber/Yango
 import 'parametres_screen.dart'; // 🆕 Paramètres
-import 'full_screen_intent_permission.dart'; // 🆕 Permission plein écran (Android 14+)
 
 // =============================================================
 //  ESPACE PRODUCTEUR / FOURNISSEUR (Lot 3 + Lot 8)
@@ -113,48 +112,6 @@ class _ProducteurScreenState extends State<ProducteurScreen>
     _sondageProposition = Timer.periodic(
       const Duration(seconds: 15),
       (_) => _verifierPropositionsEnAttente(),
-    );
-
-    // 🆕 Permission plein écran (Android 14+) : sans elle, l'alerte
-    // façon appel entrant retombe silencieusement sur une notification
-    // classique. On vérifie une fois à l'ouverture de l'écran, et on
-    // explique/oriente vers les réglages si elle manque — jamais de
-    // redirection surprise sans explication d'abord.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _verifierPermissionPleinEcran());
-  }
-
-  Future<void> _verifierPermissionPleinEcran() async {
-    final accordee = await FullScreenIntentPermission.estAccordee();
-    if (accordee || !mounted) return;
-
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text("Autorisation requise", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
-        content: const Text(
-          "Pour recevoir les nouvelles commandes en plein écran avec sonnerie "
-          "(même téléphone verrouillé), Allo Guinaar a besoin d'une autorisation "
-          "spéciale que Android n'accorde plus automatiquement.\n\n"
-          "Sur l'écran qui va s'ouvrir, activez l'option pour Allo Guinaar.",
-          style: TextStyle(fontSize: 13.5, height: 1.4),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Plus tard"),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8B0000)),
-            onPressed: () {
-              Navigator.pop(context);
-              FullScreenIntentPermission.ouvrirReglages();
-            },
-            child: const Text("Activer maintenant", style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
     );
   }
 

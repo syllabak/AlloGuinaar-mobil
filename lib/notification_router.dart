@@ -6,6 +6,7 @@ import 'catalogue_screen.dart';
 import 'producteur_screen.dart';
 import 'livreur_screen.dart';
 import 'proposition_commande_screen.dart'; // dispatch Uber/Yango
+import 'api_service.dart'; // 🆕 DIAGNOSTIC TEMPORAIRE — debugLog()
 
 // =============================================================
 //  ROUTEUR DE NOTIFICATIONS — réécrit à neuf.
@@ -18,10 +19,17 @@ import 'proposition_commande_screen.dart'; // dispatch Uber/Yango
 class NotificationRouter {
   static Future<void> ouvrir(Map<String, dynamic> data) async {
     print("[Routeur] ouvrir() appelé avec type=${data['type']}");
+    // 🆕 DIAGNOSTIC TEMPORAIRE — première ligne de la fonction, avant
+    // tout le reste : si cette ligne apparaît côté serveur, ouvrir() est
+    // bien atteinte. Si elle n'apparaît jamais alors que "onMessage
+    // REÇU" apparaît, le problème est précisément entre les deux —
+    // improbable vu le code, mais on élimine le doute.
+    ApiService.debugLog("NotificationRouter.ouvrir() ENTRÉE — type=${data['type']}");
 
     final session = await SessionService.lire();
     if (session == null) {
       print("[Routeur] Aucune session active — rien à ouvrir");
+      ApiService.debugLog("ABANDON — SessionService.lire() a renvoyé null");
       return;
     }
 
@@ -30,6 +38,7 @@ class NotificationRouter {
     final String role = session['role'] ?? 'client';
     if (tel.isEmpty) {
       print("[Routeur] Session sans téléphone — rien à ouvrir");
+      ApiService.debugLog("ABANDON — session sans téléphone");
       return;
     }
 
@@ -45,16 +54,19 @@ class NotificationRouter {
       tentatives++;
     }
     if (navState == null) {
+      ApiService.debugLog("ABANDON — navigatorKey.currentState toujours null après ${tentatives * 200}ms");
       print("[Routeur] ERREUR : navigatorKey.currentState toujours null après ${tentatives * 200}ms — abandon");
       return;
     }
 
     final String type = (data['type'] ?? '').toString();
+    ApiService.debugLog("Type détecté='$type', proposition_id=${data['proposition_id']}, cmd_id=${data['cmd_id']}");
 
     // 🚨 Proposition de commande (dispatch Uber/Yango) : écran plein
     // écran Accepter/Refuser avec sonnerie, prioritaire sur tout le reste.
     if (type == 'proposition_commande' && data['proposition_id'] != null) {
       print("[Routeur] Ouverture PropositionCommandeScreen (cmd #${data['cmd_id']})");
+      ApiService.debugLog("Ouverture PropositionCommandeScreen — SUCCÈS attendu");
       navState.push(MaterialPageRoute(
         builder: (_) => PropositionCommandeScreen(
           telephone: tel,

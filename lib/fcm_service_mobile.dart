@@ -57,20 +57,34 @@ class FcmService {
   static int _idCompteur = 2000;
 
   /// 🆕 iOS uniquement : attend que le jeton APNs natif soit disponible,
-  /// avec de courts réessais (10 x 500 ms = 5 s max). Sans effet sur
+  /// avec des réessais plus longs (30 x 1s = 30s max). Sans effet sur
   /// Android (retourne immédiatement).
+  ///
+  /// 🆕 CORRIGÉ — 5 secondes (l'ancienne limite) se sont révélées
+  /// insuffisantes en conditions réelles : le log serveur a montré
+  /// l'exception exacte "[firebase_messaging/apns-token-not-set] APNS
+  /// token has not been set yet" survenant systématiquement juste après
+  /// l'ancien délai de 5s. iOS peut légitimement mettre plus de temps à
+  /// livrer ce jeton selon la qualité réseau au moment précis de la
+  /// connexion — 30s couvre une bien plus large majorité de cas, sans
+  /// bloquer l'app pour autant (ça tourne en arrière-plan de
+  /// l'initialisation, pas devant l'utilisateur).
   static Future<void> _attendreApnsToken() async {
     if (!Platform.isIOS) return;
-    for (int tentative = 1; tentative <= 10; tentative++) {
+    for (int tentative = 1; tentative <= 30; tentative++) {
       final apnsToken = await _fcm.getAPNSToken();
       if (apnsToken != null) {
         print("[FCM][iOS] Jeton APNs disponible après $tentative tentative(s)");
+        ApiService.debugLog("Jeton APNs disponible après $tentative tentative(s)");
         return;
       }
-      print("[FCM][iOS] Jeton APNs pas encore prêt (tentative $tentative/10) — nouvelle tentative dans 500 ms");
-      await Future.delayed(const Duration(milliseconds: 500));
+      if (tentative == 1 || tentative % 5 == 0) {
+        print("[FCM][iOS] Jeton APNs pas encore prêt (tentative $tentative/30)");
+      }
+      await Future.delayed(const Duration(seconds: 1));
     }
-    print("[FCM][iOS] ATTENTION : jeton APNs toujours indisponible après 5 s — getToken() risque de renvoyer null");
+    print("[FCM][iOS] ATTENTION : jeton APNs toujours indisponible après 30s");
+    ApiService.debugLog("ÉCHEC — jeton APNs jamais reçu après 30s d'attente");
   }
 
   static Future<void> initialiser(String telephone) async {
@@ -110,7 +124,25 @@ class FcmService {
       await _attendreApnsToken();
       ApiService.debugLog("Retour de _attendreApnsToken(), avant getToken()");
 
-      final token = await _fcm.getToken();
+      // 🆕 CORRIGÉ — getToken() peut encore lever
+      // "apns-token-not-set" juste après la fenêtre d'attente, dans de
+      // rares cas de course résiduelle. Trois réessais courts
+      // supplémentaires ici évitent de faire échouer TOUTE
+      // l'initialisation (y compris les écoutes onMessage plus bas,
+      // pourtant sans rapport) pour un problème de timing qui se
+      // résout généralement en quelques secondes de plus.
+      String? token;
+      for (int essai = 1; essai <= 3; essai++) {
+        try {
+          token = await _fcm.getToken();
+          break;
+        } catch (e) {
+          print("[FCM] getToken() essai $essai/3 a échoué : $e");
+          if (essai == 3) rethrow;
+          await Future.delayed(const Duration(seconds: 3));
+        }
+      }
+
       if (token == null || token.isEmpty) {
         print("[FCM] ERREUR : getToken() n'a renvoyé aucun jeton pour $telephone");
         ApiService.debugLog("getToken() a renvoyé NULL ou vide");
@@ -129,7 +161,17 @@ class FcmService {
 
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         print("[FCM] Message premier plan — type=${message.data['type']}");
+        // 🆕 DIAGNOSTIC TEMPORAIRE — jamais tracé jusqu'ici : c'était un
+        // vrai angle mort. Sans cette ligne, impossible de savoir si le
+        // message arrive réellement jusqu'à l'app (auquel cas le
+        // problème serait dans NotificationRouter.ouvrir()) ou s'il
+        // n'arrive jamais du tout sur le téléphone malgré l'envoi
+        // confirmé côté serveur (auquel cas le problème serait entre
+        // Firebase et APNs/le téléphone, invisible depuis nos propres
+        // logs serveur).
+        ApiService.debugLog("onMessage REÇU — type=${message.data['type']}, data=${message.data}");
         if (message.data['type'] == 'proposition_commande') {
+          ApiService.debugLog("Appel de NotificationRouter.ouvrir() pour proposition_commande");
           NotificationRouter.ouvrir(message.data);
           return;
         }

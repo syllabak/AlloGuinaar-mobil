@@ -6,7 +6,6 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_service.dart';
 import 'notification_router.dart';
-import 'full_screen_intent_permission.dart';
 
 // =============================================================
 //  NOTIFICATION SERVICE — réécrit à neuf.
@@ -158,16 +157,6 @@ class NotificationService {
     );
 
     final details = NotificationDetails(android: android, iOS: ios);
-
-    // 🆕 DIAGNOSTIC — sur Android 14+, _plugin.show() ne lève AUCUNE
-    // exception quand la permission plein écran manque : le système
-    // retombe silencieusement sur une notification classique, sans
-    // jamais le signaler au code Dart. Le bloc catch ci-dessous ne se
-    // déclenche donc quasiment jamais — cette vérification directe est
-    // la seule façon fiable de savoir, au moment précis de l'affichage,
-    // si le plein écran va réellement s'afficher ou non.
-    final permissionOk = await FullScreenIntentPermission.estAccordee();
-    ApiService.debugLog("[Notif] Permission plein écran au moment de l'affichage : $permissionOk");
 
     try {
       await _plugin.show(id, titre, corps, details, payload: payload);

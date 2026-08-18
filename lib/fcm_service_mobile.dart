@@ -35,20 +35,51 @@ Future<void> _backgroundMessageHandler(RemoteMessage message) async {
   }
 
   print("[FCM][bg] Message reçu app fermée — type=${message.data['type']}");
+  // 🆕 DIAGNOSTIC — visible dans les logs OVH, contrairement à print()
+  // qui reste local au téléphone (invisible sans ADB). Sans ce log, on
+  // ne peut pas distinguer "le message n'est jamais arrivé" de "le
+  // message est arrivé mais l'affichage plein écran a échoué".
+  ApiService.debugLog("[bg-Android] Message REÇU app fermée — type=${message.data['type']}, data=${message.data}");
 
   if (message.data['type'] == 'proposition_commande') {
     try {
       await NotificationService.afficherAlerteUrgente(
         id: 9000,
         titre: message.data['titre'] ?? '🚨 Nouvelle commande à accepter !',
-        corps: message.data['corps'] ?? 'Vous avez 2 minutes pour répondre.',
+        corps: _corpsPropositionDetaille(message.data),
         payload: jsonEncode(message.data),
       );
       print("[FCM][bg] Alerte urgente affichée avec succès");
+      ApiService.debugLog("[bg-Android] afficherAlerteUrgente() SUCCÈS");
     } catch (e) {
       print("[FCM][bg] ERREUR affichage alerte urgente : $e");
+      ApiService.debugLog("[bg-Android] ERREUR afficherAlerteUrgente() : $e");
     }
   }
+}
+
+/// Construit un résumé visible directement dans la notification, avant
+/// même que le producteur ouvre l'écran plein écran — pour qu'il puisse
+/// juger en un coup d'œil s'il est en mesure d'accepter. Chaque champ
+/// est optionnel et ignoré silencieusement s'il est absent du payload
+/// serveur, plutôt que d'afficher "null".
+String _corpsPropositionDetaille(Map<String, dynamic> data) {
+  final articles = data['articles']?.toString();
+  final montant = data['montant']?.toString();
+  final adresse = data['adresse']?.toString();
+  final cmdId = data['cmd_id']?.toString();
+
+  final segments = <String>[];
+  if (cmdId != null && cmdId.isNotEmpty) segments.add('Cmd #$cmdId');
+  if (articles != null && articles.isNotEmpty) segments.add(articles);
+  if (montant != null && montant.isNotEmpty) segments.add('$montant F');
+
+  final ligne1 = segments.isNotEmpty ? segments.join(' • ') : 'Nouvelle commande';
+  final ligne2 = adresse != null && adresse.isNotEmpty
+      ? '📍 $adresse — 2 min pour répondre'
+      : 'Vous avez 2 minutes pour répondre.';
+
+  return '$ligne1\n$ligne2';
 }
 
 class FcmService {

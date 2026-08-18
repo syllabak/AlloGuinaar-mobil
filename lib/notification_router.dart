@@ -73,6 +73,14 @@ class NotificationRouter {
           propositionId: int.tryParse(data['proposition_id'].toString()) ?? 0,
           cmdId: int.tryParse(data['cmd_id'].toString()) ?? 0,
           delaiSecondes: int.tryParse(data['delai_secondes']?.toString() ?? '') ?? 120,
+          // 🆕 Détails remontés depuis le payload FCM — si le serveur ne
+          // les envoie pas encore, ces champs restent simplement null et
+          // PropositionCommandeScreen affiche ses valeurs par défaut,
+          // sans planter.
+          nomClient: data['nom_client']?.toString(),
+          adresse: data['adresse']?.toString(),
+          articles: data['articles']?.toString(),
+          montant: data['montant']?.toString(),
         ),
       ));
       return;

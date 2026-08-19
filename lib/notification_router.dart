@@ -3,7 +3,7 @@ import 'app_navigator.dart';
 import 'session_service.dart';
 import 'message_screen.dart';
 import 'catalogue_screen.dart';
-import 'producteur_screen.dart';
+import '20260817_2_producteur_screen.dart';
 import 'livreur_screen.dart';
 import 'proposition_commande_screen.dart'; // dispatch Uber/Yango
 import 'api_service.dart'; // 🆕 DIAGNOSTIC TEMPORAIRE — debugLog()
@@ -73,14 +73,6 @@ class NotificationRouter {
           propositionId: int.tryParse(data['proposition_id'].toString()) ?? 0,
           cmdId: int.tryParse(data['cmd_id'].toString()) ?? 0,
           delaiSecondes: int.tryParse(data['delai_secondes']?.toString() ?? '') ?? 120,
-          // 🆕 Détails remontés depuis le payload FCM — si le serveur ne
-          // les envoie pas encore, ces champs restent simplement null et
-          // PropositionCommandeScreen affiche ses valeurs par défaut,
-          // sans planter.
-          nomClient: data['nom_client']?.toString(),
-          adresse: data['adresse']?.toString(),
-          articles: data['articles']?.toString(),
-          montant: data['montant']?.toString(),
         ),
       ));
       return;

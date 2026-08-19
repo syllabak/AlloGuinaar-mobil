@@ -19,21 +19,11 @@ class FullScreenIntentPermission {
   static Future<bool> estAccordee() async {
     if (!Platform.isAndroid) return true;
     try {
-      // 🆕 CORRIGÉ — depuis le handler d'arrière-plan Firebase (isolate
-      // headless séparé de MainActivity), cet appel ne trouve parfois
-      // personne pour répondre côté natif et peut rester bloqué
-      // indéfiniment sans jamais lever d'exception. C'est probablement
-      // ce qui paralysait tout le handler et empêchait même la
-      // notification de repli de s'afficher. Un délai de sécurité
-      // garantit qu'on abandonne proprement plutôt que de tout bloquer.
-      final bool? resultat = await _channel
-          .invokeMethod<bool>('peutUtiliserPleinEcran')
-          .timeout(const Duration(seconds: 2), onTimeout: () => null);
+      final bool? resultat = await _channel.invokeMethod<bool>('peutUtiliserPleinEcran');
       return resultat ?? true;
     } catch (e) {
-      // En cas d'erreur de canal (ex. appel depuis l'isolate
-      // d'arrière-plan, ou ancienne version de l'app sans ce code
-      // natif), on suppose accordée plutôt que de bloquer
+      // En cas d'erreur de canal (ex. ancienne version de l'app sans
+      // ce code natif), on suppose accordée plutôt que de bloquer
       // l'utilisateur avec une demande inutile.
       return true;
     }

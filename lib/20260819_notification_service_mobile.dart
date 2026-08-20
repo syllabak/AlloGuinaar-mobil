@@ -5,7 +5,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_service.dart';
-import 'notification_router.dart';
+import '20260817_notification_router.dart';
 
 // =============================================================
 //  NOTIFICATION SERVICE — réécrit à neuf.

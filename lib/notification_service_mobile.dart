@@ -169,6 +169,20 @@ class NotificationService {
     final permissionOk = await FullScreenIntentPermission.estAccordee();
     ApiService.debugLog("[Notif] Permission plein écran au moment de l'affichage : $permissionOk");
 
+    // 🆕 CORRIGÉ — cause probable des échecs intermittents observés en
+    // test : cette notification utilise toujours le même id (9000) avec
+    // ongoing:true/autoCancel:false, donc NON balayable par
+    // l'utilisateur. Si un test précédent n'a jamais été résolu
+    // (proposition expirée, app fermée avant réponse), l'ancienne
+    // notification restait bloquée dans le tiroir système — un appel
+    // .show() avec le même id sur une notification déjà présente la
+    // MET À JOUR en place sur Android, sans redéclencher ni la bannière
+    // ni le plein écran. cancel() avant show() force Android à traiter
+    // chaque proposition comme une notification réellement neuve.
+    try {
+      await _plugin.cancel(id);
+    } catch (_) {}
+
     try {
       await _plugin.show(id, titre, corps, details, payload: payload);
       print("[Notif] Alerte urgente affichée (id=$id)");
@@ -195,6 +209,15 @@ class NotificationService {
         print("[Notif] ERREUR alerte urgente (repli inclus) : $e2");
       }
     }
+  }
+
+  /// 🆕 À appeler dès que la proposition est résolue (acceptée, refusée,
+  /// ou expirée côté écran) — sans ça, la notification (ongoing, non
+  /// balayable) reste bloquée indéfiniment dans le tiroir système.
+  static Future<void> annulerAlerteUrgente({int id = 9000}) async {
+    try {
+      await _plugin.cancel(id);
+    } catch (_) {}
   }
 
   // ── Polling de statut (fallback indépendant du push, inchangé) ──

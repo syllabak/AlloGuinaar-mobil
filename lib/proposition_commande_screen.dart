@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'api_service.dart';
+import 'notification_service.dart';
 
 // =============================================================
 //  PROPOSITION DE COMMANDE — écran plein écran façon Uber/Yango
@@ -119,6 +120,15 @@ class _PropositionCommandeScreenState extends State<PropositionCommandeScreen> w
     _minuteur?.cancel();
     _sirene.dispose();
     _pulseCtrl.dispose();
+    // 🆕 CORRIGÉ — sans ça, cette notification (ongoing, non balayable
+    // par l'utilisateur) reste bloquée indéfiniment dans le tiroir
+    // système. La fois suivante, .show() avec le même id ne fait alors
+    // que la mettre à jour en place, sans redéclencher ni la bannière
+    // ni le plein écran — cause probable des échecs intermittents
+    // observés en test. dispose() couvre tous les chemins de sortie de
+    // cet écran (accepter, refuser, retour), donc c'est l'endroit le
+    // plus fiable pour ce nettoyage.
+    NotificationService.annulerAlerteUrgente();
     super.dispose();
   }
 

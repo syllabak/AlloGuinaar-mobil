@@ -2,5 +2,4 @@
 class FcmService {
   static Future<void> initialiser(String telephone) async {}
   static Future<String?> getToken() async => null;
-  static void reset() {}
 }

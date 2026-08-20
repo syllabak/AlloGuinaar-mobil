@@ -1,5 +1,4 @@
 import 'package:shared_preferences/shared_preferences.dart';
-import 'fcm_service.dart';
 
 /// Gère la persistance de la session utilisateur entre les lancements de l'app.
 /// Utilise SharedPreferences pour stocker les données localement.
@@ -57,39 +56,15 @@ class SessionService {
 
   // -------------------------------------------------------
   // SUPPRIMER la session (déconnexion)
-  // 🆕 CORRIGÉ — auparavant, seules les 5 clés de session étaient
-  // effacées. Si un autre compte se connectait ensuite SANS que
-  // l'app soit complètement fermée et rouverte, deux problèmes
-  // pouvaient survenir :
-  //   1. Le cache de statuts de commandes de l'ancien numéro
-  //      (commandes_statuts_$telephone) restait en mémoire locale —
-  //      sans risque de conflit direct puisqu'il est déjà préfixé
-  //      par numéro, mais autant le nettoyer proprement.
-  //   2. Le flag interne _initialise de FcmService restait à true en
-  //      mémoire (processus Dart pas redémarré), empêchant le
-  //      nouveau compte de réenregistrer son propre jeton FCM auprès
-  //      du serveur — le nouveau compte se retrouvait alors SANS
-  //      AUCUNE notification push tant que l'app n'était pas tuée et
-  //      relancée manuellement. C'est exactement le type de conflit
-  //      entre comptes que tu voulais éviter.
-  // Note : le consentement RGPD n'est PAS effacé — décision
-  // intentionnelle, le consentement reste valable pour l'appareil.
+  // Note : le consentement RGPD n'est PAS effacé
   // -------------------------------------------------------
   static Future<void> supprimer() async {
     final prefs = await SharedPreferences.getInstance();
-    final ancienTel = prefs.getString(_keyTel);
-
     await prefs.remove(_keyNom);
     await prefs.remove(_keyTel);
     await prefs.remove(_keyRole);
     await prefs.remove(_keyUserId);
     await prefs.remove(_keyInviteCode);
-
-    if (ancienTel != null && ancienTel.isNotEmpty) {
-      await prefs.remove('commandes_statuts_$ancienTel');
-    }
-
-    FcmService.reset();
   }
 
   // -------------------------------------------------------

@@ -70,6 +70,18 @@ class FcmService {
   static bool _initialise = false;
   static int _idCompteur = 2000;
 
+  /// 🆕 À appeler explicitement à la déconnexion. Sans ça, le flag
+  /// _initialise reste à true en mémoire tant que l'app n'est pas
+  /// tuée par l'utilisateur — si un autre compte se connecte ensuite
+  /// sur le même téléphone dans la même session d'app, initialiser()
+  /// ci-dessous se croit déjà fait et ne réenregistre jamais le jeton
+  /// FCM pour ce nouveau compte, qui se retrouve alors sans
+  /// notifications tant que l'app n'a pas été fermée/rouverte
+  /// manuellement.
+  static void reset() {
+    _initialise = false;
+  }
+
   /// 🆕 iOS uniquement : attend que le jeton APNs natif soit disponible,
   /// avec des réessais plus longs (30 x 1s = 30s max). Sans effet sur
   /// Android (retourne immédiatement).

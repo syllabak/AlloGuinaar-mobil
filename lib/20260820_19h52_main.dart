@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart'; // 🆕 CORRIGÉ (voir ci-dessous)
 import 'firebase_options.dart';
@@ -73,18 +72,24 @@ void main() async {
   // (Android ET iOS — ce qui écarte aussi toute piste liée à un moteur
   // de rendu propre à une seule plateforme).
   // 🆕 CORRIGÉ — ces deux initialisations n'ont AUCUN rapport avec le
-  // premier rendu visuel de l'app (contrairement à Firebase.initializeApp()
-  // ci-dessus, requis dès le premier widget par AnalyticsService.observer).
-  // Les attendre ici avec un timeout de 5s CHACUNE ajoutait jusqu'à 10
-  // secondes d'écran totalement noir avant même le splash, dans le pire
-  // cas. On les lance maintenant SANS attendre — elles continuent en
-  // tâche de fond pendant que runApp() s'exécute déjà.
-  NotificationService.initialiser().catchError((e) {
-    debugPrint("Notification init error: $e");
-  });
-  DeepLinkService.initialiser().catchError((e) {
-    debugPrint("Deep link init error: $e");
-  });
+  // premier rendu visuel (contrairement à Firebase.initializeApp(),
+  // requis dès le premier widget par AnalyticsService.observer). Les
+  // attendre ici retardait l'apparition du splash de jusqu'à 10
+  // secondes (5s + 5s de timeout dans le pire cas), écran totalement
+  // vide pendant ce temps. On les démarre sans `await` : elles
+  // continuent de tourner en tâche de fond après runApp(), leurs
+  // propres timeouts internes (déjà en place) les protègent toujours
+  // d'un blocage silencieux.
+  NotificationService.initialiser().timeout(
+    const Duration(seconds: 5),
+    onTimeout: () => debugPrint("Notification init : délai dépassé, on continue sans bloquer"),
+  ).catchError((e) => debugPrint("Notification init error: $e"));
+
+  DeepLinkService.initialiser().timeout(
+    const Duration(seconds: 5),
+    onTimeout: () => debugPrint("Deep link init : délai dépassé, on continue sans bloquer"),
+  ).catchError((e) => debugPrint("Deep link init error: $e"));
+
   runApp(const AlloGuinaarApp());
 }
 
@@ -175,6 +180,13 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _initialiserApp() async {
+    // Protection globale contre tout crash au démarrage
+    try {
+      LocationService.initialiser();
+    } catch (e) {
+      debugPrint("GPS init error: $e");
+    }
+
     Map<String, dynamic>? session;
     try {
       session = await SessionService.lire();
@@ -185,36 +197,18 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (!mounted) return;
 
-    // 🆕 CORRIGÉ — navigation déplacée AVANT le GPS et le FCM. Ces deux
-    // opérations n'ont aucun rapport avec l'écran à afficher : GPS
-    // pouvait bloquer jusqu'à 10s, et FcmService.initialiser() (avec
-    // l'attente du jeton APNs sur iOS) jusqu'à 30s de plus, empêchant
-    // l'utilisateur de voir quoi que ce soit pendant tout ce temps à
-    // chaque ouverture de l'app. Elles partent maintenant en tâche de
-    // fond juste après la navigation, jamais avant.
-    final String tel  = session?['tel']  ?? '';
+    final String tel  = session?['tel'] ?? '';
     final String role = session?['role'] ?? 'client';
-    _naviguerVersEcranApproprie(session, role, tel);
 
-    try {
-      LocationService.initialiser();
-    } catch (e) {
-      debugPrint("GPS init error: $e");
-    }
-
-    if (tel.isNotEmpty) {
-      // 🆕 Les deux n'ont aucune dépendance entre elles — lancées en
-      // parallèle plutôt qu'en série, sans bloquer l'UI dans les deux
-      // cas (déjà loin derrière la navigation à ce stade).
-      unawaited(NotificationService.sauvegarderStatutsInitiaux(tel)
-          .catchError((e) => debugPrint("Statuts init error: $e")));
-      unawaited(FcmService.initialiser(tel)
-          .catchError((e) => debugPrint("FCM init error: $e")));
-    }
-  }
-
-  void _naviguerVersEcranApproprie(Map<String, dynamic>? session, String role, String tel) {
-    // 🆕 apiag-beta : router les livreurs vers leur espace dédié
+    // 🆕 CORRIGÉ — navigation IMMÉDIATE dès que la session locale est
+    // lue (quasi instantané, aucun accès réseau). Auparavant, l'écran
+    // suivant n'apparaissait qu'après sauvegarderStatutsInitiaux() ET
+    // FcmService.initialiser() (jeton APNs iOS jusqu'à 30s + réseau),
+    // deux opérations qui n'ont aucun rapport avec l'affichage de
+    // l'écran d'accueil/producteur/livreur. Elles partent maintenant
+    // en tâche de fond juste après la navigation, sans jamais la
+    // retarder — cohérent avec le pattern déjà utilisé pour
+    // PubliciteService.verifierEtAfficher() ailleurs dans le code.
     if (role == 'livreur' && tel.isNotEmpty) {
       Navigator.pushReplacement(
         context,
@@ -226,7 +220,6 @@ class _SplashScreenState extends State<SplashScreen> {
         ),
       );
     } else if (role == 'producteur' && tel.isNotEmpty) {
-      // 🆕 Lot 3
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -247,6 +240,15 @@ class _SplashScreenState extends State<SplashScreen> {
           ),
         ),
       );
+    }
+
+    // 🆕 Tout le reste : en tâche de fond, jamais attendu, jamais
+    // bloquant pour l'écran déjà affiché ci-dessus.
+    if (tel.isNotEmpty) {
+      NotificationService.sauvegarderStatutsInitiaux(tel)
+          .catchError((e) => debugPrint("Statuts initiaux error: $e"));
+      FcmService.initialiser(tel)
+          .catchError((e) => debugPrint("Notification/FCM init error: $e"));
     }
   }
 

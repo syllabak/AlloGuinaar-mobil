@@ -1,82 +1,101 @@
-This XML file does not appear to have any style information associated with it. The document tree is shown below.
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-<uses-permission android:name="android.permission.INTERNET"/>
-<!--  🆕 apiag-beta : requis (Android 13+) pour les notifications locales
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- 🆕 apiag-beta : requis (Android 13+) pour les notifications locales
          de suivi de commande. Absente des deux projets d'origine ; sans
          elle, la demande de permission faite au runtime par
-         notification_service_mobile.dart resterait sans effet.  -->
-<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-<!--  🆕 Nécessaire pour afficher la proposition de commande en plein
-         écran façon appel entrant, même téléphone verrouillé/app fermée.  -->
-<uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
-<!--  🆕 Permet d'afficher directement la boîte de dialogue système
+         notification_service_mobile.dart resterait sans effet. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- 🆕 Nécessaire pour afficher la proposition de commande en plein
+         écran façon appel entrant, même téléphone verrouillé/app fermée. -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
+    <!-- 🆕 Permet d'afficher directement la boîte de dialogue système
          "Autoriser l'app à ignorer l'optimisation de la batterie" —
          seule demande de ce lot qu'Android accepte de traiter en un
-         clic, sans passer par un écran de réglages séparé.  -->
-<uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
-<!--  🆕 Lot 5 : messagerie vocale  -->
-<uses-permission android:name="android.permission.RECORD_AUDIO"/>
-<application android:label="Allo Guinaar" android:name="${applicationName}" android:icon="@mipmap/ic_launcher">
-<!--  🆕 Corrigé : bug connu et documenté de Flutter (Impeller +
+         clic, sans passer par un écran de réglages séparé. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+    <!-- 🆕 Lot 5 : messagerie vocale -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <application
+        android:label="Allo Guinaar"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher">
+        <!-- 🆕 Corrigé : bug connu et documenté de Flutter (Impeller +
              WebView + appareils Samsung) provoquant un écran noir après
              certaines navigations, récupérable seulement en fermant et
              rouvrant l'app. La WebView est utilisée pour le suivi du
              livreur (tracking_screen.dart). Contournement officiel :
-             désactiver Impeller sur Android, retour au moteur Skia.  -->
-<meta-data android:name="io.flutter.embedding.android.EnableImpeller" android:value="false"/>
-<activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:taskAffinity="" android:theme="@style/LaunchTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" android:hardwareAccelerated="true" android:windowSoftInputMode="adjustResize">
-<!--  Specifies an Android theme to apply to this Activity as soon as
+             désactiver Impeller sur Android, retour au moteur Skia. -->
+        <meta-data
+            android:name="io.flutter.embedding.android.EnableImpeller"
+            android:value="false" />
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <!-- Specifies an Android theme to apply to this Activity as soon as
                  the Android process has started. This theme is visible to the user
                  while the Flutter UI initializes. After that, this theme continues
-                 to determine the Window background behind the Flutter UI.  -->
-<meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme"/>
-<intent-filter>
-<action android:name="android.intent.action.MAIN"/>
-<category android:name="android.intent.category.LAUNCHER"/>
-</intent-filter>
-<!--  🆕 Lot 11 : App Links — permet d'ouvrir directement l'app
+                 to determine the Window background behind the Flutter UI. -->
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme"
+              />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- 🆕 Lot 11 : App Links — permet d'ouvrir directement l'app
                  depuis un lien https://alloguinaar.danov.sn/... (ex. lien
                  de parrainage) au lieu du navigateur. android:autoVerify
                  déclenche la vérification automatique du fichier
                  assetlinks.json hébergé sur le domaine (voir
                  GUIDE_MARKETING_SOCIAL.md — action manuelle nécessaire
-                 sur votre serveur, je n'y ai pas accès).  -->
-<intent-filter android:autoVerify="true">
-<action android:name="android.intent.action.VIEW"/>
-<category android:name="android.intent.category.DEFAULT"/>
-<category android:name="android.intent.category.BROWSABLE"/>
-<data android:scheme="https" android:host="alloguinaar.danov.sn"/>
-</intent-filter>
-</activity>
-<!--  Don't delete the meta-data below.
-             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java  -->
-<meta-data android:name="flutterEmbedding" android:value="2"/>
-<meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="alloguinaar_channel"/>
-</application>
-<!--  Required to query activities that can process text, see:
+                 sur votre serveur, je n'y ai pas accès). -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="alloguinaar.danov.sn"/>
+            </intent-filter>
+        </activity>
+        <!-- Don't delete the meta-data below.
+             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+            <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="alloguinaar_channel" />
+    </application>
+    <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
          https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
 
-         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin.  -->
-<queries>
-<intent>
-<action android:name="android.intent.action.PROCESS_TEXT"/>
-<data android:mimeType="text/plain"/>
-</intent>
-<!--  🆕 Corrigé : sans ceci, canLaunchUrl() de url_launcher pouvait
+         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- 🆕 Corrigé : sans ceci, canLaunchUrl() de url_launcher pouvait
              renvoyer "false" pour un lien https:// sur Android 11+
              (restrictions de visibilité des packages), bloquant en
              silence tous les liens ouverts dans un navigateur externe —
-             dont le bouton "Voir ma facture".  -->
-<intent>
-<action android:name="android.intent.action.VIEW"/>
-<data android:scheme="https"/>
-</intent>
-<intent>
-<action android:name="android.intent.action.VIEW"/>
-<data android:scheme="http"/>
-</intent>
-</queries>
+             dont le bouton "Voir ma facture". -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="http"/>
+        </intent>
+    </queries>
 </manifest>

@@ -1,12 +1,15 @@
 package sn.danov.alloguinaar
 
+import android.app.KeyguardManager
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
+import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -39,6 +42,43 @@ import io.flutter.plugin.common.MethodChannel
 // =============================================================
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "sn.danov.alloguinaar/full_screen_intent"
+
+    // 🆕 IMPORTANT — pièce manquante probable pour "écran verrouillé et
+    // éteint : rien ne se passe", même une fois le handler d'arrière-
+    // plan confirmé fonctionnel. `fullScreenIntent: true` côté
+    // flutter_local_notifications demande à Android de LANCER cette
+    // Activity par-dessus l'écran verrouillé — mais sans ces
+    // indicateurs, Android peut recevoir la demande sans jamais
+    // réveiller l'écran ni afficher quoi que ce soit tant que
+    // l'utilisateur n'a pas lui-même déverrouillé le téléphone.
+    // N'ayant qu'une seule Activity pour toute l'app (comme la plupart
+    // des projets Flutter), ces indicateurs s'appliquent à CHAQUE
+    // lancement — même compromis que les apps d'appel entrant type
+    // WhatsApp/Messenger. Le téléphone n'est jamais déverrouillé pour
+    // autant : Android affiche l'app par-dessus l'écran de
+    // verrouillage, qui reste actif en dessous.
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        } else {
+            @Suppress("DEPRECATION")
+            window.addFlags(
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+            )
+        }
+        try {
+            val km = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+            km.requestDismissKeyguard(this, null)
+        } catch (e: Exception) {
+            // Non bloquant — sur certains OEM/versions cet appel peut
+            // échouer sans conséquence, showWhenLocked ci-dessus suffit
+            // déjà à afficher l'app par-dessus le verrouillage.
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)

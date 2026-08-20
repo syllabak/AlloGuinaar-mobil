@@ -71,23 +71,25 @@ void main() async {
   // run" (débogueur attaché, différent), systématique sur appareil réel
   // (Android ET iOS — ce qui écarte aussi toute piste liée à un moteur
   // de rendu propre à une seule plateforme).
-  try {
-    await NotificationService.initialiser()
-        .timeout(const Duration(seconds: 5), onTimeout: () {
-      debugPrint("Notification init : délai dépassé, on continue sans bloquer");
-    });
-  } catch (e) {
-    debugPrint("Notification init error: $e");
-  }
-  // 🆕 Lot 11 : capter un éventuel lien de parrainage ayant lancé l'app
-  try {
-    await DeepLinkService.initialiser()
-        .timeout(const Duration(seconds: 5), onTimeout: () {
-      debugPrint("Deep link init : délai dépassé, on continue sans bloquer");
-    });
-  } catch (e) {
-    debugPrint("Deep link init error: $e");
-  }
+  // 🆕 CORRIGÉ — ces deux initialisations n'ont AUCUN rapport avec le
+  // premier rendu visuel (contrairement à Firebase.initializeApp(),
+  // requis dès le premier widget par AnalyticsService.observer). Les
+  // attendre ici retardait l'apparition du splash de jusqu'à 10
+  // secondes (5s + 5s de timeout dans le pire cas), écran totalement
+  // vide pendant ce temps. On les démarre sans `await` : elles
+  // continuent de tourner en tâche de fond après runApp(), leurs
+  // propres timeouts internes (déjà en place) les protègent toujours
+  // d'un blocage silencieux.
+  NotificationService.initialiser().timeout(
+    const Duration(seconds: 5),
+    onTimeout: () => debugPrint("Notification init : délai dépassé, on continue sans bloquer"),
+  ).catchError((e) => debugPrint("Notification init error: $e"));
+
+  DeepLinkService.initialiser().timeout(
+    const Duration(seconds: 5),
+    onTimeout: () => debugPrint("Deep link init : délai dépassé, on continue sans bloquer"),
+  ).catchError((e) => debugPrint("Deep link init error: $e"));
+
   runApp(const AlloGuinaarApp());
 }
 
@@ -193,23 +195,20 @@ class _SplashScreenState extends State<SplashScreen> {
       session = null;
     }
 
-    final String tel = session?['tel'] ?? '';
-
-    // 🆕 apiag-beta : notifications (statuts + push FCM) si déjà connecté
-    if (tel.isNotEmpty) {
-      try {
-        await NotificationService.sauvegarderStatutsInitiaux(tel);
-        await FcmService.initialiser(tel);
-      } catch (e) {
-        debugPrint("Notification/FCM init error: $e");
-      }
-    }
-
     if (!mounted) return;
 
-    // 🆕 apiag-beta : router les livreurs vers leur espace dédié
+    final String tel  = session?['tel'] ?? '';
     final String role = session?['role'] ?? 'client';
 
+    // 🆕 CORRIGÉ — navigation IMMÉDIATE dès que la session locale est
+    // lue (quasi instantané, aucun accès réseau). Auparavant, l'écran
+    // suivant n'apparaissait qu'après sauvegarderStatutsInitiaux() ET
+    // FcmService.initialiser() (jeton APNs iOS jusqu'à 30s + réseau),
+    // deux opérations qui n'ont aucun rapport avec l'affichage de
+    // l'écran d'accueil/producteur/livreur. Elles partent maintenant
+    // en tâche de fond juste après la navigation, sans jamais la
+    // retarder — cohérent avec le pattern déjà utilisé pour
+    // PubliciteService.verifierEtAfficher() ailleurs dans le code.
     if (role == 'livreur' && tel.isNotEmpty) {
       Navigator.pushReplacement(
         context,
@@ -221,7 +220,6 @@ class _SplashScreenState extends State<SplashScreen> {
         ),
       );
     } else if (role == 'producteur' && tel.isNotEmpty) {
-      // 🆕 Lot 3
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -242,6 +240,15 @@ class _SplashScreenState extends State<SplashScreen> {
           ),
         ),
       );
+    }
+
+    // 🆕 Tout le reste : en tâche de fond, jamais attendu, jamais
+    // bloquant pour l'écran déjà affiché ci-dessus.
+    if (tel.isNotEmpty) {
+      NotificationService.sauvegarderStatutsInitiaux(tel)
+          .catchError((e) => debugPrint("Statuts initiaux error: $e"));
+      FcmService.initialiser(tel)
+          .catchError((e) => debugPrint("Notification/FCM init error: $e"));
     }
   }
 

@@ -11,8 +11,6 @@ import 'publicite_service.dart'; // 🆕 Lot 10
 import 'proposition_commande_screen.dart'; // 🆕 Dispatch Uber/Yango
 import 'parametres_screen.dart'; // 🆕 Paramètres
 import 'full_screen_intent_permission.dart'; // 🆕 Permission plein écran (Android 14+)
-import 'alertes_onboarding.dart'; // 🆕 Batterie / canal urgent / démarrage auto
-import 'package:shared_preferences/shared_preferences.dart';
 
 // =============================================================
 //  ESPACE PRODUCTEUR / FOURNISSEUR (Lot 3 + Lot 8)
@@ -122,29 +120,7 @@ class _ProducteurScreenState extends State<ProducteurScreen>
     // classique. On vérifie une fois à l'ouverture de l'écran, et on
     // explique/oriente vers les réglages si elle manque — jamais de
     // redirection surprise sans explication d'abord.
-    // 🆕 Les deux vérifications sont enchaînées l'une après l'autre
-    // (jamais en parallèle) pour éviter deux boîtes de dialogue
-    // superposées si la permission plein écran manque aussi.
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _verifierPermissionPleinEcran();
-      await _verifierOnboardingAlertes();
-    });
-  }
-
-  Future<void> _verifierOnboardingAlertes() async {
-    if (!mounted) return;
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      const cle = 'onboarding_alertes_v1_montre';
-      if (prefs.getBool(cle) == true) return;
-      if (!mounted) return;
-      await afficherOnboardingAlertes(context);
-      await prefs.setBool(cle, true);
-    } catch (_) {
-      // Si SharedPreferences échoue pour une raison quelconque, on
-      // préfère ne pas afficher le dialogue plutôt que de planter
-      // l'écran producteur au démarrage.
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _verifierPermissionPleinEcran());
   }
 
   Future<void> _verifierPermissionPleinEcran() async {

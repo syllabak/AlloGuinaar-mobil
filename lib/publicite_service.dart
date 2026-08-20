@@ -12,6 +12,11 @@ import 'package:flutter/material.dart';
 //  dernières 24h n'est simplement pas proposée à nouveau.
 // =============================================================
 class PubliciteService {
+  // 🆕 DÉSACTIVÉ TEMPORAIREMENT — repasser à true pour réactiver les
+  // publicités. Rien d'autre à toucher, tout le reste du fichier reste
+  // inchangé et prêt à fonctionner normalement dès que c'est remis à true.
+  static const bool _publicitesActivees = false;
+
   static const _cle = 'publicite_vues'; // { "12": ["2026-07-25T10:00:00Z", ...], ... }
   static const int _maxVuesParJour = 3;
   static const Duration _fenetre = Duration(hours: 24);
@@ -21,6 +26,7 @@ class PubliciteService {
   /// c'est le cas. À appeler après le premier rendu de l'écran
   /// d'accueil (post-frame), pour ne pas bloquer le lancement de l'app.
   static Future<void> verifierEtAfficher(BuildContext context, String telephone) async {
+    if (!_publicitesActivees) return;
     try {
       final r = await ApiService.publicitesActives(telephone);
       if (r['status'] != 'success') return;
